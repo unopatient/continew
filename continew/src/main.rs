@@ -1,16 +1,16 @@
 #![allow(non_snake_case)]
 
+use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use tracing::Level;
+use serde::{Serialize, Deserialize};
 
 // const _TAILWIND_URL: &str = manganis::mg!(file("assets/tailwind.css"));
 
 #[derive(Clone, Routable, Debug, PartialEq)]
 enum Route {
     #[route("/")]
-    Home {},
-    #[route("/blog/:id")]
-    Blog { id: i32 },
+    Home {}
 }
 
 fn main() {
@@ -31,33 +31,56 @@ fn App() -> Element {
 }
 
 #[component]
-fn Blog(id: i32) -> Element {
+fn Home() -> Element {
+
     rsx! {
-        Link { to: Route::Home {}, "Go to counter" }
-        "Blog post {id}"
+        div { "Home!" }
+        ArticleListing {
+            article: ArticleItem {
+                id: 0,
+                time: Utc::now(),
+                title: "oh my lonely soul".to_string(),
+                subtitle: "on isolation via the connected web".to_string(),
+                author: "pasha_nemerov".to_string()
+            }
+        }
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ArticleItem {
+    pub id: i64,
+    #[serde(with="chrono::serde::ts_seconds")]
+    pub time: DateTime<Utc>,
+    pub title: String,
+    pub subtitle: String,
+    pub author: String,
+}
+
 #[component]
-fn Home() -> Element {
-    let mut count = use_signal(|| 0);
+fn ArticleListing(article: ReadOnlySignal<ArticleItem>) -> Element {
+    let ArticleItem {
+        id,
+        time,
+        title,
+        subtitle,
+        author
+    } = &*article.read();
+
+    let time = time.format("%D %l:%M %p");
 
     rsx! {
-        div {
-            Link {
-                to: Route::Blog {
-                    id: count()
-                },
-                "Go to blog"
+        div {padding: "0.5rem", position: "relative",
+            div { font_size: "1.5rem", color: "gray",
+                "{title}"
             }
-        }
-        div {
-            h1 { class: "text-green-500 text-4xl font-bold", "Feed" }
-        }
-        div {
-            h1 { class: "text-green-500 text-4xl font-bold", "High-Five counter: {count}" }
-            button { class: "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded", onclick: move |_| count += 1, "Up high!" }
-            button { class: "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded", onclick: move |_| count -= 1, "Down low!" }
+            div { color: "gray",
+                "{subtitle}"
+            }
+            div { display: "flex", flex_direction: "row", color: "gray",
+                div { "by {author}" }
+                div { padding_left: "0.5rem", "{time}"}
+            }
         }
     }
 }
