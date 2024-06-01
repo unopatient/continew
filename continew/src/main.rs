@@ -24,8 +24,9 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    // Determines initial value of shared state
+    use_context_provider(|| Signal::new(PreviewState::Unset));
     rsx! {
-        // link { rel: "stylesheet", href: "main.css" }
         Router::<Route> {}
     }
 }
@@ -34,7 +35,15 @@ fn App() -> Element {
 fn Home() -> Element {
 
     rsx! {
-        div { "Home!" }
+        div { class: "bg-slate-950 flex flex-row w-full",
+            div { class: "w-1/2", Articles {}}
+            div { class: "w-1/2", Preview {}}
+        }
+    }
+}
+
+fn Articles() -> Element {
+    rsx! {
         ArticleListing {
             article: ArticleItem {
                 id: 0,
@@ -45,6 +54,52 @@ fn Home() -> Element {
             }
         }
     }
+}
+
+fn Preview() -> Element {
+    // fetch from shared state
+    let preview_state = consume_context::<Signal<PreviewState>>();
+
+    match preview_state() {
+        PreviewState::Unset => {
+            rsx! { 
+                div { class: "p-2",
+                    div { class: "text-slate-400",
+                        "hover over an article to preview it here" 
+                    }
+                }
+            }
+        },
+        PreviewState::Loading => {
+            rsx! { 
+                div { class: "p-2",
+                    div { class: "text-slate-400",
+                        "loading..." 
+                    }
+                }
+            }
+        },
+        PreviewState::Loaded(article) => {
+            rsx! {
+                div { class: "p-2",
+                    div { class: "text-2xl text-slate-400", "story here"}
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum PreviewState {
+    Unset, 
+    Loading,
+    Loaded(ArticlePageData),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ArticlePageData {
+    #[serde(flatten)]
+    pub item: ArticleItem
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -59,25 +114,36 @@ pub struct ArticleItem {
 
 #[component]
 fn ArticleListing(article: ReadOnlySignal<ArticleItem>) -> Element {
+    // Get preview state from shared state
+    let mut preview_state = consume_context::<Signal<PreviewState>>();
+
     let ArticleItem {
-        id,
         time,
         title,
         subtitle,
-        author
+        author,
+        ..
     } = &*article.read();
 
     let time = time.format("%D %l:%M %p");
 
     rsx! {
-        div {padding: "0.5rem", position: "relative",
-            div { font_size: "1.5rem", color: "gray",
+        div { class: "p-2 relative",
+            onmouseenter: move |_event| {
+                // Modify preview state
+                // Dereferenced since we're messing w/ shared context!
+                *preview_state
+                    .write() = PreviewState::Loaded(ArticlePageData {
+                        item: article(),
+                    });
+            },
+            div { class: "text-2xl text-slate-300",
                 "{title}"
             }
-            div { color: "gray",
+            div { class: "text-slate-400",
                 "{subtitle}"
             }
-            div { display: "flex", flex_direction: "row", color: "gray",
+            div { class: "text-slate-400 flex flex-row",
                 div { "by {author}" }
                 div { padding_left: "0.5rem", "{time}"}
             }
